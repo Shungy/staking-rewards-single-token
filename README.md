@@ -4,7 +4,7 @@ Synthetix' StakingRewards rewritten for maximum efficiency when the staking toke
 
 ## Donate
 
-Any EVM: 0xa8101F6Ec7080dE84233f1eE4fc1D6A2C1568327
+Any EVM chain: 0xa8101F6Ec7080dE84233f1eE4fc1D6A2C1568327
 
 ## Features
 
@@ -20,12 +20,24 @@ Any EVM: 0xa8101F6Ec7080dE84233f1eE4fc1D6A2C1568327
 * No ERC20 token recovery function
 * No funding using the account balance
 * No pointless reenterancy guards
+* No safeTransfer (use a proper token)
 
 DO NOT DIRECTLY TRANSFER TOKENS TO THE CONTRACT!
 Only fund through the `addReward()` function.
 This model is similar to MiniChef, and incompatible
 with `notifyRewardAmount()` method of original StakingRewards.
 So, DO NOT DIRECTLY TRANSFER TOKENS TO THE CONTRACT!
+
+## Limitations
+
+1. The sum of all tokens added through `addReward()` cannot exceed `2**96-1`,
+2. A user's staked balance cannot exceed `2**96-1`.
+
+## Assumptions
+
+1. `block.timestamp < 2**64 - 2**32`,
+2. rewardToken returns false or reverts on failing transfers,
+3. Number of users does not exceed `(2**256-1)/(2**96-1)`.
 
 ## Fixed Vulnerability
 
@@ -43,12 +55,13 @@ rewards and DO NOT DIRECTLY TRANSFER TOKENS TO THE CONTRACT!
 My StakingRewards | Costs     | Original StakingRewards       | Costs
 ----------------- | --------- | ----------------------------- | -----
 `addReward`       | 65k       | `transfer+notifyRewardAmount` | ~120k
-`stake`           | 68k-82k   | `stake`                       | ~100k
-`withdraw`        | 55k-60k   | `exit`                        | 95k
-`withdraw`        | 55k-60k   | `withdraw`                    | 75k-80k
-`compound`        | 43k       | `harvest+stake`               | ~175k
-`harvest`         | 56k       | `getReward`                   | 75k
+`stake`           | 65k-79k   | `stake`                       | ~100k
+`withdraw` (fully)| 53k       | `exit`                        | 95k
+`withdraw`        | 53k-58k   | `withdraw`                    | 75k-80k
+`compound`        | 41k       | `getReward+stake`             | ~175k
+`harvest`         | 54k       | `getReward`                   | 75k
 
 ## Disclaimer
 
 Contract yet to be properly tested. Use at your own risk.
+I am also using unchecked math. That is considered a risky practice. However I plan to verify the logic.
