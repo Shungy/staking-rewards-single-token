@@ -1,0 +1,44 @@
+{
+  "name": "staking_rewards-single_token",
+  "version": "1.0.0",
+  "main": "index.js",
+  "repository": "https://github.com/Shungy/StakingRewardsSingleToken",
+  "author": "shung",
+  "license": "GPLv3",
+  "scripts": {
+    "compile": "export LANG=C && npx hardhat compile",
+    "deploy": "export LANG=C && npx hardhat run scripts/deploy.js > .contracts.env",
+    "node": "export LANG=C && npx hardhat node",
+    "test": "export LANG=C && npx hardhat test",
+    "lint": "solhint 'contracts/**/*.sol'",
+    "graph": "surya graph contracts/*.sol | dot -Tpng > graph.png && sxiv graph.png &",
+    "size": "export LANG=C && npx hardhat size-contracts",
+    "gas": "export LANG=C && export REPORT_GAS=true && npx hardhat test",
+    "coverage": "export LANG=C && npx hardhat coverage"
+  },
+  "dependencies": {
+    "@openzeppelin/contracts": "^4.6.0",
+    "dotenv": "^16.0.0"
+  },
+  "devDependencies": {
+    "@nomiclabs/hardhat-ethers": "^2.0.5",
+    "@nomiclabs/hardhat-waffle": "^2.0.3",
+    "chai": "^4.3.6",
+    "ethereum-waffle": "^3.4.4",
+    "ethers": "^5.6.4",
+    "hardhat": "^2.9.3",
+    "hardhat-gas-reporter": "^1.0.8",
+    "prettier-plugin-solidity": "^1.0.0-beta.19"
+  },
+  "prettier": {
+    "overrides": [
+      {
+        "files": "*.sol",
+        "options": {
+          "explicitTypes": "always",
+          "printWidth": 99
+        }
+      }
+    ]
+  }
+}
