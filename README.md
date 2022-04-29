@@ -56,10 +56,10 @@ My StakingRewards | Costs     | Original StakingRewards       | Costs
 ----------------- | --------- | ----------------------------- | -----
 `addReward`       | 65k       | `transfer+notifyRewardAmount` | ~120k
 `stake`           | 65k-79k   | `getReward+stake`             | ~175k
-N/A               | N/A       | `stake`                       | ~100k
+                  |           | `stake`                       | ~100k
 `withdraw` (full amount)| 53k | `exit`                        | 95k
 `withdraw`        | 53k-58k   | `getReward+withdraw`          | 150k-155k
-N/A               | N/A       | `withdraw`                    | 75k-80k
+                  |           | `withdraw`                    | 75k-80k
 `compound`        | 41k       | `getReward+stake`             | ~175k
 `harvest`         | 54k       | `getReward`                   | 75k
 
