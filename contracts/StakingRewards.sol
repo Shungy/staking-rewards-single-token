@@ -53,6 +53,15 @@ contract StakingRewards is AccessControl {
     event RewardAdded(uint256 reward);
     event PeriodDurationUpdated(uint256 newDuration);
 
+    error InvalidAmount(uint256 amount);
+    error InvalidDuration(uint256 duration);
+    error BalanceOverflow(uint256 balance);
+    error DistributionOverflow(uint256 distributed);
+    error NoReward();
+    error FailedTransfer();
+    error ZeroAddress();
+    error OngoingPeriod();
+
     modifier updateRewardPerTokenStored() {
         unchecked {
             if (totalStaked != 0) {
@@ -67,8 +76,7 @@ contract StakingRewards is AccessControl {
 
     constructor(address newRewardToken, address newAdmin) {
         unchecked {
-            require(newRewardToken != address(0), "zero address");
-            require(newAdmin != address(0), "zero address");
+            if (newRewardToken == address(0) || newAdmin == address(0)) revert ZeroAddress();
             rewardToken = IERC20(newRewardToken);
             _grantRole(DEFAULT_ADMIN_ROLE, newAdmin);
             _grantRole(FUNDER_ROLE, newAdmin);
@@ -78,24 +86,21 @@ contract StakingRewards is AccessControl {
 
     function stake(uint256 amount) external updateRewardPerTokenStored {
         unchecked {
+            if (amount == 0 || amount > MAX_BALANCE) revert InvalidAmount(amount);
             User storage user = users[msg.sender];
-            uint256 tmpBalance = user.balance;
-            require(
-                amount != 0 && amount <= MAX_BALANCE && tmpBalance + amount <= MAX_BALANCE,
-                "invalid amount"
-            );
+            uint256 oldBalance = user.balance;
             uint160 rewardPerToken = rewardPerTokenStored;
-            uint256 reward = (tmpBalance * (uint256(rewardPerToken) - user.rewardPerTokenPaid)) /
-                PRECISION;
+            uint256 rewardPerTokenPayable = rewardPerToken - user.rewardPerTokenPaid;
+            uint256 reward = (oldBalance * rewardPerTokenPayable) / PRECISION;
             uint256 totalAmount = amount + reward;
-            require(tmpBalance + totalAmount <= MAX_BALANCE, "harvest first then stake");
+            uint256 newBalance = oldBalance + totalAmount;
+            if (newBalance > MAX_BALANCE) revert BalanceOverflow(newBalance);
             totalStaked += totalAmount;
-            user.balance = uint96(tmpBalance + totalAmount);
+            user.balance = uint96(newBalance);
             user.rewardPerTokenPaid = uint160(rewardPerToken);
-            require(
-                rewardToken.transferFrom(msg.sender, address(this), amount),
-                "transfer failed"
-            );
+            if (!rewardToken.transferFrom(msg.sender, address(this), amount)) {
+                revert FailedTransfer();
+            }
             emit Staked(msg.sender, amount, reward);
         }
     }
@@ -104,28 +109,27 @@ contract StakingRewards is AccessControl {
         unchecked {
             User storage user = users[msg.sender];
             uint160 rewardPerToken = rewardPerTokenStored;
-            uint256 reward = (user.balance * (uint256(rewardPerToken) - user.rewardPerTokenPaid)) /
-                PRECISION;
-            require(reward != 0, "no rewards");
+            uint256 rewardPerTokenPayable = rewardPerToken - user.rewardPerTokenPaid;
+            uint256 reward = (user.balance * rewardPerTokenPayable) / PRECISION;
+            if (reward == 0) revert NoReward();
             user.rewardPerTokenPaid = rewardPerToken;
-            require(rewardToken.transfer(msg.sender, reward), "transfer failed");
+            if (!rewardToken.transfer(msg.sender, reward)) revert FailedTransfer();
             emit Harvested(msg.sender, reward);
         }
     }
 
     function withdraw(uint256 amount) external updateRewardPerTokenStored {
         unchecked {
-            require(amount != 0, "zero amount");
             User storage user = users[msg.sender];
-            uint256 tmpBalance = user.balance;
-            require(tmpBalance >= amount, "insufficient balance");
+            uint256 oldBalance = user.balance;
+            if (amount == 0 || amount > oldBalance) revert InvalidAmount(amount);
             uint160 rewardPerToken = rewardPerTokenStored;
-            uint256 reward = (tmpBalance * (uint256(rewardPerToken) - user.rewardPerTokenPaid)) /
-                PRECISION;
+            uint256 rewardPerTokenPayable = rewardPerToken - user.rewardPerTokenPaid;
+            uint256 reward = (oldBalance * rewardPerTokenPayable) / PRECISION;
             totalStaked -= amount;
-            user.balance = uint96(tmpBalance - amount);
+            user.balance = uint96(oldBalance - amount);
             user.rewardPerTokenPaid = rewardPerToken;
-            require(rewardToken.transfer(msg.sender, amount + reward), "transfer failed");
+            if (!rewardToken.transfer(msg.sender, amount + reward)) revert FailedTransfer();
             emit Withdrawn(msg.sender, amount, reward);
         }
     }
@@ -133,14 +137,15 @@ contract StakingRewards is AccessControl {
     function compound() external updateRewardPerTokenStored {
         unchecked {
             User storage user = users[msg.sender];
-            uint256 tmpBalance = user.balance;
+            uint256 oldBalance = user.balance;
             uint160 rewardPerToken = rewardPerTokenStored;
-            uint256 reward = (tmpBalance * (uint256(rewardPerToken) - user.rewardPerTokenPaid)) /
-                PRECISION;
-            require(reward != 0, "no rewards");
-            require(tmpBalance + reward <= MAX_BALANCE, "balance does not fit 96 bits");
+            uint256 rewardPerTokenPayable = rewardPerToken - user.rewardPerTokenPaid;
+            uint256 reward = (oldBalance * rewardPerTokenPayable) / PRECISION;
+            if (reward == 0) revert NoReward();
+            uint256 newBalance = oldBalance + reward;
+            if (newBalance > MAX_BALANCE) revert BalanceOverflow(newBalance);
             totalStaked += reward;
-            user.balance = uint96(tmpBalance + reward);
+            user.balance = uint96(newBalance);
             user.rewardPerTokenPaid = rewardPerToken;
             emit Compounded(msg.sender, reward);
         }
@@ -148,14 +153,12 @@ contract StakingRewards is AccessControl {
 
     function addReward(uint256 amount) external onlyRole(FUNDER_ROLE) updateRewardPerTokenStored {
         unchecked {
-            uint256 tmpTotalRewardAdded = totalRewardAdded;
             uint256 tmpPeriodFinish = periodFinish;
             uint256 tmpPeriodDuration = periodDuration;
-            require(
-                amount != 0 && amount <= MAX_ADDED && tmpTotalRewardAdded + amount <= MAX_ADDED,
-                "invalid amount"
-            );
-            totalRewardAdded = uint96(tmpTotalRewardAdded + amount);
+            if (amount == 0 || amount > MAX_ADDED) revert InvalidAmount(amount);
+            uint256 newTotalRewardAdded = totalRewardAdded + amount;
+            if (newTotalRewardAdded > MAX_ADDED) revert DistributionOverflow(newTotalRewardAdded);
+            totalRewardAdded = uint96(newTotalRewardAdded);
             if (block.timestamp >= tmpPeriodFinish) {
                 rewardRate = uint96(amount / tmpPeriodDuration);
             } else {
@@ -163,18 +166,17 @@ contract StakingRewards is AccessControl {
                 rewardRate = uint96((amount + leftover) / tmpPeriodDuration);
             }
             periodFinish = uint64(block.timestamp + tmpPeriodDuration);
-            require(
-                rewardToken.transferFrom(msg.sender, address(this), amount),
-                "transfer failed"
-            );
+            if (!rewardToken.transferFrom(msg.sender, address(this), amount)) {
+                revert FailedTransfer();
+            }
             emit RewardAdded(amount);
         }
     }
 
     function setPeriodDuration(uint256 newDuration) external onlyRole(DURATION_ROLE) {
         unchecked {
-            require(block.timestamp > periodFinish, "ongoing period");
-            require(newDuration != 0 && newDuration <= MAX_PERIOD, "invalid duration");
+            if (periodFinish >= block.timestamp) revert OngoingPeriod();
+            if (newDuration == 0 || newDuration > MAX_PERIOD) revert InvalidDuration(newDuration);
             periodDuration = newDuration;
             emit PeriodDurationUpdated(newDuration);
         }

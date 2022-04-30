@@ -55,7 +55,7 @@ rewards and DO NOT DIRECTLY TRANSFER TOKENS TO THE CONTRACT!
 My StakingRewards | Costs     | Original StakingRewards       | Costs
 ----------------- | --------- | ----------------------------- | -----
 `addReward`       | 65k       | `transfer+notifyRewardAmount` | ~120k
-`stake`           | 65k-79k   | `getReward+stake`             | ~175k
+`stake`           | 65k       | `getReward+stake`             | ~175k
                   |           | `stake`                       | ~100k
 `withdraw` (full amount)| 53k | `exit`                        | 95k
 `withdraw`        | 53k-58k   | `getReward+withdraw`          | 150k-155k
