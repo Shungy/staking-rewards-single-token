@@ -56,9 +56,8 @@ contract StakingRewards is AccessControl {
     modifier updateRewardPerTokenStored() {
         unchecked {
             if (totalStaked != 0) {
-                uint256 rewardPerToken = rewardPerTokenStored;
                 rewardPerTokenStored = uint160(
-                    rewardPerToken + ((_pendingRewards() * PRECISION) / totalStaked)
+                    rewardPerTokenStored + ((_pendingRewards() * PRECISION) / totalStaked)
                 );
             }
             lastUpdate = uint96(block.timestamp);
