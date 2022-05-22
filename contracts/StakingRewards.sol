@@ -31,15 +31,15 @@ contract StakingRewards is AccessControl {
 
     uint96 public rewardRate;
     uint64 public periodFinish;
-    uint96 private totalRewardAdded;
+    uint96 private totalRewardAdded; // ensures limitation 1
 
     uint256 public totalStaked;
     uint256 public periodDuration = 1 days;
 
-    uint256 private constant PRECISION = type(uint64).max;
-    uint256 private constant MAX_ADDED = type(uint96).max;
-    uint256 private constant MAX_PERIOD = type(uint32).max;
-    uint256 private constant MAX_BALANCE = type(uint96).max;
+    uint256 private constant PRECISION = 2**64-1;
+    uint256 private constant MAX_ADDED = 2**96-1;
+    uint256 private constant MAX_PERIOD = 2**32-1;
+    uint256 private constant MAX_BALANCE = 2**96-1; // ensures limitation 2
 
     bytes32 private constant FUNDER_ROLE = keccak256("FUNDER_ROLE");
     bytes32 private constant DURATION_ROLE = keccak256("DURATION_ROLE");
@@ -59,15 +59,13 @@ contract StakingRewards is AccessControl {
     error DistributionOverflow(uint256 distributed);
     error NoReward();
     error FailedTransfer();
-    error ZeroAddress();
     error OngoingPeriod();
 
     modifier updateRewardPerTokenStored() {
         unchecked {
-            if (totalStaked != 0) {
-                rewardPerTokenStored = uint160(
-                    rewardPerTokenStored + ((_pendingRewards() * PRECISION) / totalStaked)
-                );
+            uint256 tmpTotalStaked = totalStaked;
+            if (tmpTotalStaked != 0) {
+                rewardPerTokenStored += uint160((_pendingRewards() * PRECISION) / tmpTotalStaked);
             }
             lastUpdate = uint96(block.timestamp);
         }
@@ -75,13 +73,10 @@ contract StakingRewards is AccessControl {
     }
 
     constructor(address newRewardToken, address newAdmin) {
-        unchecked {
-            if (newRewardToken == address(0) || newAdmin == address(0)) revert ZeroAddress();
-            rewardToken = IERC20(newRewardToken);
-            _grantRole(DEFAULT_ADMIN_ROLE, newAdmin);
-            _grantRole(FUNDER_ROLE, newAdmin);
-            _grantRole(DURATION_ROLE, newAdmin);
-        }
+        rewardToken = IERC20(newRewardToken);
+        _grantRole(DEFAULT_ADMIN_ROLE, newAdmin);
+        _grantRole(FUNDER_ROLE, newAdmin);
+        _grantRole(DURATION_ROLE, newAdmin);
     }
 
     function stake(uint256 amount) external updateRewardPerTokenStored {
@@ -174,20 +169,19 @@ contract StakingRewards is AccessControl {
     }
 
     function setPeriodDuration(uint256 newDuration) external onlyRole(DURATION_ROLE) {
-        unchecked {
-            if (periodFinish >= block.timestamp) revert OngoingPeriod();
-            if (newDuration == 0 || newDuration > MAX_PERIOD) revert InvalidDuration(newDuration);
-            periodDuration = newDuration;
-            emit PeriodDurationUpdated(newDuration);
-        }
+        if (periodFinish >= block.timestamp) revert OngoingPeriod();
+        if (newDuration == 0 || newDuration > MAX_PERIOD) revert InvalidDuration(newDuration);
+        periodDuration = newDuration;
+        emit PeriodDurationUpdated(newDuration);
     }
 
     function earned(address account) external view returns (uint256) {
         unchecked {
             User memory user = users[account];
-            uint256 rewardPerToken = totalStaked == 0
+            uint256 tmpTotalStaked = totalStaked;
+            uint256 rewardPerToken = tmpTotalStaked == 0
                 ? rewardPerTokenStored
-                : rewardPerTokenStored + (_pendingRewards() * PRECISION) / totalStaked;
+                : rewardPerTokenStored + (_pendingRewards() * PRECISION) / tmpTotalStaked;
             return (user.balance * (rewardPerToken - user.rewardPerTokenPaid)) / PRECISION;
         }
     }
@@ -195,10 +189,10 @@ contract StakingRewards is AccessControl {
     function _pendingRewards() private view returns (uint256) {
         unchecked {
             uint256 tmpPeriodFinish = periodFinish;
+            uint256 tmpLastUpdate = lastUpdate;
             uint256 lastTimeRewardApplicable = tmpPeriodFinish < block.timestamp
                 ? tmpPeriodFinish
                 : block.timestamp;
-            uint256 tmpLastUpdate = lastUpdate;
             uint256 duration = lastTimeRewardApplicable > tmpLastUpdate
                 ? lastTimeRewardApplicable - tmpLastUpdate
                 : 0;
