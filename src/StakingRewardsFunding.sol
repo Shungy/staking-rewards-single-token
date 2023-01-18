@@ -15,9 +15,9 @@ import "openzeppelin/token/ERC20/IERC20.sol";
  */
 abstract contract StakingRewardsFunding is AccessControlEnumerable {
     uint80 private _rewardRate;
-    uint40 private _lastUpdate;
-    uint40 private _periodFinish;
-    uint96 private _totalRewardAdded;
+    uint40 public lastUpdate;
+    uint40 public periodFinish;
+    uint96 public totalRewardAdded;
     uint256 public periodDuration = 1 days;
     IERC20 public immutable rewardsToken;
     bytes32 public constant FUNDER_ROLE = keccak256("FUNDER_ROLE");
@@ -50,7 +50,7 @@ abstract contract StakingRewardsFunding is AccessControlEnumerable {
     }
 
     function setPeriodDuration(uint256 newDuration) external onlyRole(DEFAULT_ADMIN_ROLE) {
-        uint256 tmpPeriodFinish = _periodFinish;
+        uint256 tmpPeriodFinish = periodFinish;
         if (tmpPeriodFinish > block.timestamp) revert OngoingPeriod(tmpPeriodFinish);
         if (newDuration < MIN_PERIOD_DURATION) revert ShortPeriodDuration(newDuration);
         if (newDuration > MAX_PERIOD_DURATION) revert LongPeriodDuration(newDuration);
@@ -59,12 +59,12 @@ abstract contract StakingRewardsFunding is AccessControlEnumerable {
     }
 
     function endPeriod() external onlyRole(DEFAULT_ADMIN_ROLE) {
-        uint256 tmpPeriodFinish = _periodFinish;
+        uint256 tmpPeriodFinish = periodFinish;
         if (block.timestamp >= tmpPeriodFinish) revert FinishedPeriod(tmpPeriodFinish);
         unchecked {
             uint256 leftover = (tmpPeriodFinish - block.timestamp) * _rewardRate;
-            _totalRewardAdded -= uint96(leftover);
-            _periodFinish = uint40(block.timestamp);
+            totalRewardAdded -= uint96(leftover);
+            periodFinish = uint40(block.timestamp);
             _transferToCaller(leftover);
             emit PeriodManuallyEnded(tmpPeriodFinish);
         }
@@ -73,22 +73,22 @@ abstract contract StakingRewardsFunding is AccessControlEnumerable {
     function addReward(uint256 amount) external onlyRole(FUNDER_ROLE) {
         uint256 tmpPeriodDuration = periodDuration;
         if (amount > MAX_TOKEN) revert InvalidRewardAmount(amount);
-        _totalRewardAdded += uint96(amount);
+        totalRewardAdded += uint96(amount);
         // Update the _rewardRate, ensuring leftover rewards from the ongoing period are included.
-        // Note that we are using `_lastUpdate` instead of `block.timestamp`, otherwise we would
-        // have to “stash” the rewards from `_lastUpdate` to `block.timestamp` in storage. We
+        // Note that we are using `lastUpdate` instead of `block.timestamp`, otherwise we would
+        // have to “stash” the rewards from `lastUpdate` to `block.timestamp` in storage. We
         // do not want to stash the rewards to keep the cost low. However, using this method means
         // that `_pendingRewards()` will change, hence a user might “lose” rewards earned since
-        // `_lastUpdate`. It is not a very big deal as the `_lastUpdate` is likely to be updated
+        // `lastUpdate`. It is not a very big deal as the `lastUpdate` is likely to be updated
         // frequently, but just something to acknowledge.
         uint256 newRewardRate;
-        if (_lastUpdate >= _periodFinish) {
+        if (lastUpdate >= periodFinish) {
             assembly {
                 newRewardRate := div(amount, tmpPeriodDuration)
             }
         } else {
             unchecked {
-                uint256 leftover = (_periodFinish - _lastUpdate) * _rewardRate;
+                uint256 leftover = (periodFinish - lastUpdate) * _rewardRate;
                 assembly {
                     newRewardRate := div(add(amount, leftover), tmpPeriodDuration)
                 }
@@ -97,32 +97,20 @@ abstract contract StakingRewardsFunding is AccessControlEnumerable {
         if (newRewardRate == 0) revert InvalidRewardRate(newRewardRate);
         _rewardRate = uint80(newRewardRate);
         unchecked {
-            _lastUpdate = uint40(block.timestamp);
-            _periodFinish = uint40(block.timestamp + tmpPeriodDuration);
+            lastUpdate = uint40(block.timestamp);
+            periodFinish = uint40(block.timestamp + tmpPeriodDuration);
         }
         _transferFromCaller(amount);
         emit RewardAdded(amount);
     }
 
     function rewardRate() public view returns (uint256) {
-        return _periodFinish < block.timestamp ? 0 : _rewardRate;
-    }
-
-    function periodFinish() public view returns (uint256) {
-        return _periodFinish;
-    }
-
-    function lastUpdate() public view returns (uint256) {
-        return _lastUpdate;
-    }
-
-    function totalRewardAdded() public view returns (uint256) {
-        return _totalRewardAdded;
+        return periodFinish < block.timestamp ? 0 : _rewardRate;
     }
 
     function _claim() internal returns (uint256 reward) {
         reward = _pendingRewards();
-        _lastUpdate = uint40(block.timestamp);
+        lastUpdate = uint40(block.timestamp);
     }
 
     function _transferToCaller(uint256 amount) internal {
@@ -138,10 +126,10 @@ abstract contract StakingRewardsFunding is AccessControlEnumerable {
     }
 
     function _pendingRewards() internal view returns (uint256 rewards) {
-        uint256 tmpPeriodFinish = _periodFinish;
+        uint256 tmpPeriodFinish = periodFinish;
         uint256 lastTimeRewardApplicable =
             tmpPeriodFinish < block.timestamp ? tmpPeriodFinish : block.timestamp;
-        uint256 tmpLastUpdate = _lastUpdate;
+        uint256 tmpLastUpdate = lastUpdate;
         if (lastTimeRewardApplicable > tmpLastUpdate) {
             unchecked {
                 rewards = (lastTimeRewardApplicable - tmpLastUpdate) * _rewardRate;
