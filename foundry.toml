@@ -1,4 +1,5 @@
 [profile.default]
+solc_version = '0.8.16'
 remappings = [ 'openzeppelin/=lib/openzeppelin-contracts/contracts/' ]
 optimizer_runs = 2000
 

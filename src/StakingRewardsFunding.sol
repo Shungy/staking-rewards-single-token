@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPLv3
-pragma solidity 0.8.17;
+pragma solidity ^0.8.4;
 
 import "openzeppelin/access/AccessControlEnumerable.sol";
 import "openzeppelin/token/ERC20/IERC20.sol";
