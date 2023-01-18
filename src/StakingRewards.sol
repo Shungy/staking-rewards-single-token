@@ -1,7 +1,7 @@
-pragma solidity 0.8.13;
+pragma solidity 0.8.17;
 
-import "@openzeppelin/contracts/access/AccessControl.sol";
-import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import "openzeppelin/access/AccessControl.sol";
+import "openzeppelin/token/ERC20/IERC20.sol";
 
 /**
  * @title Staking Rewards Single Token

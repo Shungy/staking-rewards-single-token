@@ -1,7 +1,7 @@
 pragma solidity ^0.8.13;
 
-import "@rari-capital/solmate/src/tokens/ERC20.sol";
-import "@openzeppelin/contracts/access/Ownable.sol";
+import "solmate/tokens/ERC20.sol";
+import "openzeppelin/access/Ownable.sol";
 
 contract TestToken is ERC20, Ownable {
     constructor() ERC20("TestToken", "TEST", 18) {
