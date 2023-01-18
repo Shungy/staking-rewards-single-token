@@ -1,0 +1,6 @@
+[profile.default]
+remappings = [ 'openzeppelin/=lib/openzeppelin-contracts/contracts/' ]
+optimizer_runs = 2000
+
+[fmt]
+line_length = 99
