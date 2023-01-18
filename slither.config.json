@@ -1,4 +1,4 @@
 {
     "solc_remaps": "openzeppelin/=lib/openzeppelin-contracts/contracts/",
-    "filter_paths": "(lib/|src/test/)"
+    "filter_paths": "(lib/|src/test/|src/mocks/)"
 }
