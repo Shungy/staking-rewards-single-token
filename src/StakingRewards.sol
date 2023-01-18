@@ -45,10 +45,8 @@ contract StakingRewards is AccessControl {
 
     IERC20 public immutable rewardToken;
 
-    event Staked(address indexed user, uint256 amount, uint256 rewards);
-    event Withdrawn(address indexed user, uint256 amount, uint256 reward);
-    event Harvested(address indexed user, uint256 reward);
-    event Compounded(address indexed user, uint256 reward);
+    event Staked(address indexed user, uint256 indexed amount, uint256 rewards);
+    event Withdrawn(address indexed user, uint256 indexed amount, uint256 reward);
     event RewardAdded(uint256 reward);
     event PeriodDurationUpdated(uint256 newDuration);
 
@@ -80,7 +78,7 @@ contract StakingRewards is AccessControl {
 
     function stake(uint256 amount) external updateRewardPerTokenStored {
         unchecked {
-            if (amount == 0 || amount > MAX_BALANCE) revert InvalidAmount(amount);
+            if (amount > MAX_BALANCE) revert InvalidAmount(amount);
             User storage user = users[msg.sender];
             uint256 oldBalance = user.balance;
             uint160 rewardPerToken = rewardPerTokenStored;
@@ -99,24 +97,11 @@ contract StakingRewards is AccessControl {
         }
     }
 
-    function harvest() external updateRewardPerTokenStored {
-        unchecked {
-            User storage user = users[msg.sender];
-            uint160 rewardPerToken = rewardPerTokenStored;
-            uint256 rewardPerTokenPayable = rewardPerToken - user.rewardPerTokenPaid;
-            uint256 reward = (user.balance * rewardPerTokenPayable) / PRECISION;
-            if (reward == 0) revert NoReward();
-            user.rewardPerTokenPaid = rewardPerToken;
-            if (!rewardToken.transfer(msg.sender, reward)) revert FailedTransfer();
-            emit Harvested(msg.sender, reward);
-        }
-    }
-
     function withdraw(uint256 amount) external updateRewardPerTokenStored {
         unchecked {
             User storage user = users[msg.sender];
             uint256 oldBalance = user.balance;
-            if (amount == 0 || amount > oldBalance) revert InvalidAmount(amount);
+            if (amount > oldBalance) revert InvalidAmount(amount);
             uint160 rewardPerToken = rewardPerTokenStored;
             uint256 rewardPerTokenPayable = rewardPerToken - user.rewardPerTokenPaid;
             uint256 reward = (oldBalance * rewardPerTokenPayable) / PRECISION;
@@ -125,23 +110,6 @@ contract StakingRewards is AccessControl {
             user.rewardPerTokenPaid = rewardPerToken;
             if (!rewardToken.transfer(msg.sender, amount + reward)) revert FailedTransfer();
             emit Withdrawn(msg.sender, amount, reward);
-        }
-    }
-
-    function compound() external updateRewardPerTokenStored {
-        unchecked {
-            User storage user = users[msg.sender];
-            uint256 oldBalance = user.balance;
-            uint160 rewardPerToken = rewardPerTokenStored;
-            uint256 rewardPerTokenPayable = rewardPerToken - user.rewardPerTokenPaid;
-            uint256 reward = (oldBalance * rewardPerTokenPayable) / PRECISION;
-            if (reward == 0) revert NoReward();
-            uint256 newBalance = oldBalance + reward;
-            if (newBalance > MAX_BALANCE) revert BalanceOverflow(newBalance);
-            totalStaked += reward;
-            user.balance = uint96(newBalance);
-            user.rewardPerTokenPaid = rewardPerToken;
-            emit Compounded(msg.sender, reward);
         }
     }
 
