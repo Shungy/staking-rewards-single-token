@@ -1,4 +1,3 @@
-// SPDX-License-Identifier: GPLv3
 pragma solidity 0.8.13;
 
 import "@openzeppelin/contracts/access/AccessControl.sol";
@@ -31,15 +30,15 @@ contract StakingRewards is AccessControl {
 
     uint96 public rewardRate;
     uint64 public periodFinish;
-    uint96 private totalRewardAdded; // ensures limitation 1
+    uint96 public totalRewardAdded;
 
-    uint256 public totalStaked;
+    uint256 public totalStaked = 0;
     uint256 public periodDuration = 1 days;
 
     uint256 private constant PRECISION = 2**64-1;
     uint256 private constant MAX_ADDED = 2**96-1;
     uint256 private constant MAX_PERIOD = 2**32-1;
-    uint256 private constant MAX_BALANCE = 2**96-1; // ensures limitation 2
+    uint256 private constant MAX_BALANCE = 2**96-1;
 
     bytes32 private constant FUNDER_ROLE = keccak256("FUNDER_ROLE");
     bytes32 private constant DURATION_ROLE = keccak256("DURATION_ROLE");
@@ -146,7 +145,11 @@ contract StakingRewards is AccessControl {
         }
     }
 
-    function addReward(uint256 amount) external onlyRole(FUNDER_ROLE) updateRewardPerTokenStored {
+    function addReward(uint256 amount)
+        external
+        onlyRole(FUNDER_ROLE)
+        updateRewardPerTokenStored
+    {
         unchecked {
             uint256 tmpPeriodFinish = periodFinish;
             uint256 tmpPeriodDuration = periodDuration;
@@ -168,7 +171,10 @@ contract StakingRewards is AccessControl {
         }
     }
 
-    function setPeriodDuration(uint256 newDuration) external onlyRole(DURATION_ROLE) {
+    function setPeriodDuration(uint256 newDuration)
+        external
+        onlyRole(DURATION_ROLE)
+    {
         if (periodFinish >= block.timestamp) revert OngoingPeriod();
         if (newDuration == 0 || newDuration > MAX_PERIOD) revert InvalidDuration(newDuration);
         periodDuration = newDuration;

@@ -1,4 +1,3 @@
-// SPDX-License-Identifier: MIT
 pragma solidity ^0.8.13;
 
 import "@rari-capital/solmate/src/tokens/ERC20.sol";
@@ -9,7 +8,7 @@ contract TestToken is ERC20, Ownable {
         _mint(msg.sender, 10_000_000e18);
     }
 
-    function mint(address to, uint amount) external onlyOwner {
+    function mint(address to, uint256 amount) external onlyOwner {
         _mint(to, amount);
     }
 }
