@@ -83,8 +83,8 @@ contract StakingRewards is StakingRewardsFunding {
                 rewardPerToken += uint160(_claim() * PRECISION / totalStaked);
                 rewardPerTokenStored = rewardPerToken;
             }
-            user.rewardPerTokenPaid = rewardPerToken;
             uint256 rewardPerTokenPayable = rewardPerToken - user.rewardPerTokenPaid;
+            user.rewardPerTokenPaid = rewardPerToken;
             reward = uint160((user.balance * rewardPerTokenPayable) / PRECISION);
         }
     }

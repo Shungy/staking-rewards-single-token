@@ -12,38 +12,52 @@ contract StakingRewardsTests is Test {
     function setUp() public {
         rewardsToken = address(new TestToken());
         stakingRewards = new StakingRewards(rewardsToken, address(this));
+        TestToken(rewardsToken).mint(address(this), type(uint256).max);
+        IERC20(rewardsToken).approve(address(stakingRewards), type(uint256).max);
     }
 
-    function testFailStakeMoreThan96Bits(uint256 amount) public {
-        vm.assume(amount > type(uint96).max);
-        TestToken(rewardsToken).mint(address(this), amount);
-        IERC20(rewardsToken).approve(address(stakingRewards), amount);
-        stakingRewards.stake(amount);
+    function testStake(uint256 amount) public {
+        if (amount > type(uint96).max) {
+            vm.expectRevert(
+                abi.encodeWithSelector(StakingRewards.InvalidStakeAmount.selector, amount)
+            );
+            stakingRewards.stake(amount);
+        } else {
+            uint160 rewardPerTokenStored = stakingRewards.rewardPerTokenStored();
+
+            stakingRewards.stake(amount);
+
+            (uint160 rewardPerTokenPaid, uint96 balance) = stakingRewards.users(address(this));
+            assertEq(rewardPerTokenStored, rewardPerTokenPaid);
+            assertEq(amount, balance);
+            assertEq(IERC20(rewardsToken).balanceOf(address(this)), type(uint256).max - amount);
+            assertEq(stakingRewards.totalStaked(), amount);
+        }
     }
 
-    function testStake(uint96 amount) public {
-        uint160 rewardPerTokenStored = stakingRewards.rewardPerTokenStored();
+    function testWithdraw(uint96 stakeAmount, uint96 withdrawAmount) public {
+        testStake(stakeAmount);
 
-        TestToken(rewardsToken).mint(address(this), amount);
-        IERC20(rewardsToken).approve(address(stakingRewards), amount);
-        stakingRewards.stake(amount);
+        if (stakeAmount < withdrawAmount) {
+            vm.expectRevert(
+                abi.encodeWithSelector(
+                    StakingRewards.InvalidWithdrawAmount.selector, withdrawAmount, stakeAmount
+                )
+            );
+            stakingRewards.withdraw(withdrawAmount);
+        } else {
+            uint160 rewardPerTokenStored = stakingRewards.rewardPerTokenStored();
 
-        (uint160 rewardPerTokenPaid, uint96 balance) = stakingRewards.users(address(this));
+            stakingRewards.withdraw(withdrawAmount);
 
-        assertEq(rewardPerTokenStored, rewardPerTokenPaid);
-        assertEq(amount, balance);
-    }
-
-    function testWithdraw(uint96 amount) public {
-        testStake(amount);
-
-        uint160 rewardPerTokenStored = stakingRewards.rewardPerTokenStored();
-
-        stakingRewards.withdraw(amount);
-
-        (uint160 rewardPerTokenPaid, uint96 balance) = stakingRewards.users(address(this));
-
-        assertEq(rewardPerTokenStored, rewardPerTokenPaid);
-        assertEq(0, balance);
+            (uint160 rewardPerTokenPaid, uint96 balance) = stakingRewards.users(address(this));
+            assertEq(rewardPerTokenStored, rewardPerTokenPaid);
+            assertEq(stakeAmount - withdrawAmount, balance);
+            assertEq(
+                IERC20(rewardsToken).balanceOf(address(this)),
+                type(uint256).max - stakeAmount + withdrawAmount
+            );
+            assertEq(stakingRewards.totalStaked(), stakeAmount - withdrawAmount);
+        }
     }
 }

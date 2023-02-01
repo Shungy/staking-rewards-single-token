@@ -2,6 +2,7 @@
 solc_version = '0.8.16'
 remappings = [ 'openzeppelin/=lib/openzeppelin-contracts/contracts/' ]
 optimizer_runs = 2000
+gas_reports = ["StakingRewards", "StakingRewardsFunding"]
 
 [fmt]
 line_length = 99
