@@ -17,7 +17,7 @@ contract StakingRewardsTests is Test {
     }
 
     function test_RevertWhen_StakeOverflow(uint256 amount) public {
-        amount = bound(amount, type(uint96).max + 1, type(uint256).max);
+        amount = bound(amount, uint256(type(uint96).max) + 1, type(uint256).max);
         vm.expectRevert(
             abi.encodeWithSelector(StakingRewards.InvalidStakeAmount.selector, amount)
         );
