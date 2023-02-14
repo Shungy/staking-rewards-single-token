@@ -88,7 +88,7 @@ abstract contract StakingRewardsFunding is AccessControlEnumerable {
             }
         } else {
             unchecked {
-                uint256 leftover = (periodFinish - lastUpdate) * _rewardRate;
+                uint256 leftover = (uint256(periodFinish) - lastUpdate) * _rewardRate;
                 assembly {
                     newRewardRate := div(add(amount, leftover), tmpPeriodDuration)
                 }

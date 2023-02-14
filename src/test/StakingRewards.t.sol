@@ -16,6 +16,41 @@ contract StakingRewardsTests is Test {
         IERC20(rewardsToken).approve(address(stakingRewards), type(uint256).max);
     }
 
+    function test_RevertWhen_AddRewardOverflow(uint256 amount) public {
+        amount = bound(amount, uint256(type(uint96).max) + 1, type(uint256).max);
+        vm.expectRevert(
+            abi.encodeWithSelector(StakingRewardsFunding.InvalidRewardAmount.selector, amount)
+        );
+        stakingRewards.addReward(amount);
+    }
+
+    function test_RevertWhen_AddRewardZeroRewardRate(uint256 amount) public {
+        uint256 minRewardAmount = stakingRewards.periodDuration();
+        amount = bound(amount, 0, minRewardAmount - 1);
+        vm.expectRevert(
+            abi.encodeWithSelector(StakingRewardsFunding.InvalidRewardRate.selector, 0)
+        );
+        stakingRewards.addReward(amount);
+    }
+
+    function test_AddRewardTwice(uint256 amount) public {
+        uint256 minRewardAmount = stakingRewards.periodDuration();
+        amount = bound(amount, minRewardAmount, type(uint96).max / 2);
+        test_AddReward(amount);
+        test_AddReward(amount);
+    }
+
+    function test_AddReward(uint256 amount) public {
+        uint256 minRewardAmount = stakingRewards.periodDuration();
+        amount = bound(amount, minRewardAmount, type(uint96).max);
+
+        uint256 rewardRate = stakingRewards.rewardRate();
+
+        stakingRewards.addReward(amount);
+
+        assertEq(stakingRewards.rewardRate(), rewardRate + amount / stakingRewards.periodDuration());
+    }
+
     function test_RevertWhen_StakeOverflow(uint256 amount) public {
         amount = bound(amount, uint256(type(uint96).max) + 1, type(uint256).max);
         vm.expectRevert(
